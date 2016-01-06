@@ -84,6 +84,8 @@
 #define RST_PIN		9		// 
 #define SS_PIN		10		//
 
+#define LED_BACKLIGHT_PIN   3
+
 MFRC522 mfrc522(SS_PIN, RST_PIN);	// Create MFRC522 instance
 LiquidCrystal lcd(6, 5, A5, A4, A3, A2);
 struct {
@@ -110,6 +112,9 @@ void setup()
     lcd.begin(20, 4);
     lcd.clear();
     lcd.print("Hello");
+
+    pinMode(LED_BACKLIGHT_PIN, OUTPUT);
+    digitalWrite(LED_BACKLIGHT_PIN, HIGH);
 }
 
 void loop()
