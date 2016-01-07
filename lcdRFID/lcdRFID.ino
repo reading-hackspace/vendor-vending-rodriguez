@@ -96,7 +96,11 @@ struct {
 
 // HACK: PICC_IsNewCardPresent returns true the first time after reading the card serial. 
 //       Should be fixed in the library, but we can easily hack around it here
-int NewCardFudge = 1;
+//
+//       Also when the card is on the edge of detection PICC_IsNewCardPresent and PICC_ReadCardSerial
+//       can fail so this will allow for a few fails before detecting as a new card.
+#define FUDGE_FACTOR 10
+int NewCardFudge = FUDGE_FACTOR;
 
 void dump_byte_array(byte *buffer, byte bufferSize);
 
@@ -135,51 +139,46 @@ void loop()
     }
 
     // Look for new cards
-    if (mfrc522.PICC_IsNewCardPresent())
+    if (mfrc522.PICC_IsNewCardPresent() && 
+        mfrc522.PICC_ReadCardSerial())
     {
-        if (mfrc522.PICC_ReadCardSerial())
+        bool bNewId = false;
+
+        if (mfrc522.uid.size == lastUid.size)
         {
-            bool bNewId = false;
-
-            if (mfrc522.uid.size == lastUid.size)
+            for (int i = 0; i < lastUid.size; i++)
             {
-                for (int i = 0; i < lastUid.size; i++)
+                if (mfrc522.uid.uidByte[i] != lastUid.uidByte[i])
                 {
-                    if (mfrc522.uid.uidByte[i] != lastUid.uidByte[i])
-                    {
-                        bNewId = true;
-                        break;
-                    }
+                    bNewId = true;
+                    break;
                 }
-            } else {
-                bNewId = true;
             }
-
-            if (bNewId)
-            {
-                for (int i = 0; i < mfrc522.uid.size; i++) {
-                    lastUid.uidByte[i] = mfrc522.uid.uidByte[i];
-                }
-                lastUid.size = mfrc522.uid.size;
-
-                // Dump debug info about the card; PICC_HaltA() is automatically called
-                Serial.print(F("Card:"));
-                dump_byte_array(mfrc522.uid.uidByte, mfrc522.uid.size);
-                Serial.println();
-            }
-
-            NewCardFudge = 0;
         } else {
-            lastUid.size = 0;
+            bNewId = true;
         }
+
+        if (bNewId)
+        {
+            for (int i = 0; i < mfrc522.uid.size; i++) {
+                lastUid.uidByte[i] = mfrc522.uid.uidByte[i];
+            }
+            lastUid.size = mfrc522.uid.size;
+
+            // Dump debug info about the card; PICC_HaltA() is automatically called
+            Serial.print(F("Card:"));
+            dump_byte_array(mfrc522.uid.uidByte, mfrc522.uid.size);
+            Serial.println();
+        }
+
+        NewCardFudge = 0;
     }
     else
     {
-        if (NewCardFudge > 0) {
+        if (NewCardFudge >= FUDGE_FACTOR) {
             lastUid.size = 0;
-        } else {
-            NewCardFudge++;
         }
+        NewCardFudge++;
     }
 }
 
